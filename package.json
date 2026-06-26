@@ -1,0 +1,33 @@
+{
+  "name": "claude-token-cost",
+  "version": "1.0.0",
+  "description": "Conta tokens reais via API Anthropic e compara custo/caching entre modelos Claude.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "cli": "node token_cost_calc.mjs"
+  },
+  "bin": {
+    "claude-cost": "token_cost_calc.mjs",
+    "claude-cost-server": "server.mjs"
+  },
+  "files": [
+    "token_cost_calc.mjs",
+    "session_analyzer.mjs",
+    "server.mjs",
+    "public"
+  ],
+  "engines": {
+    "node": ">=18.3.0"
+  },
+  "keywords": [
+    "claude",
+    "anthropic",
+    "tokens",
+    "pricing",
+    "prompt-caching",
+    "cost"
+  ],
+  "license": "MIT"
+}

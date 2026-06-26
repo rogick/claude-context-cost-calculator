@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Token Cost Calculator</title>
+    <meta name="description" content="Análise avançada de custos, caching e sessões para a API Anthropic e Claude Code">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-effects">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                <h1>Claude Token Cost</h1>
+            </div>
+            <p class="subtitle">Análise avançada de custos, caching e sessões para a API Anthropic</p>
+        </header>
+
+        <!-- Top-Level Navigation -->
+        <nav class="top-nav" id="topNav">
+            <button class="nav-btn active" data-page="page-calculator">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="12" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+                Calculadora
+            </button>
+            <button class="nav-btn" data-page="page-sessions">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                Sessões
+            </button>
+        </nav>
+
+        <main>
+            <!-- ==================== PAGE: CALCULATOR ==================== -->
+            <div class="page active" id="page-calculator">
+                <div class="card panel-input">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="tab-text">Texto / Prompt</button>
+                        <button class="tab-btn" data-tab="tab-file">Selecionar Arquivo</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-text">
+                        <div class="form-group">
+                            <label for="promptText">Seu Prompt</label>
+                            <textarea id="promptText" placeholder="Cole seu texto ou prompt aqui para calcular os tokens e custos..." rows="6"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-file">
+                        <div class="form-group">
+                            <label for="fileSearch">Pesquisar Arquivo Local</label>
+                            <div class="search-box">
+                                <input type="text" id="fileSearch" placeholder="Nome do arquivo ou caminho..." autocomplete="off">
+                                <ul class="autocomplete-dropdown" id="fileDropdown"></ul>
+                            </div>
+                            <p class="help-text">Pesquisa no diretório onde o servidor foi iniciado.</p>
+                        </div>
+                        <div id="selectedFileInfo" class="selected-file hidden">
+                            <span class="file-icon">📄</span>
+                            <span class="file-name" id="selectedFileName">nenhum arquivo selecionado</span>
+                            <button class="btn-icon" id="clearFileBtn" title="Remover">&times;</button>
+                        </div>
+                    </div>
+
+                    <div class="advanced-settings-toggle" id="toggleAdvanced">
+                        <span>Configurações Avançadas</span>
+                        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+
+                    <div class="advanced-settings hidden" id="advancedSettings">
+                        <div class="form-group">
+                            <label for="systemPrompt">System Prompt (Opcional)</label>
+                            <textarea id="systemPrompt" placeholder="Instruções de sistema..." rows="2"></textarea>
+                        </div>
+                        
+                        <div class="grid-settings">
+                            <div class="form-group">
+                                <label for="outTokens">Output (Tokens/Req)</label>
+                                <input type="number" id="outTokens" value="700">
+                            </div>
+                            <div class="form-group">
+                                <label for="varInTokens">Input Variável (Tokens/Req)</label>
+                                <input type="number" id="varInTokens" value="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="numRequests">Requests</label>
+                                <input type="number" id="numRequests" value="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="ttlCache">TTL do Cache</label>
+                                <select id="ttlCache">
+                                    <option value="5m">5 Minutos</option>
+                                    <option value="1h">1 Hora</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="contextName">Contexto</label>
+                                <input type="text" id="contextName" placeholder="ex: claude">
+                            </div>
+                            <div class="form-group checkbox-group">
+                                <label class="switch">
+                                    <input type="checkbox" id="offlineMode">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="label-text">Modo Offline (Estimativa)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="calculateBtn" class="btn-primary">
+                        <span class="btn-text">Calcular Custos</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+
+                <div class="card panel-results hidden" id="resultsPanel">
+                    <div class="results-header">
+                        <h2>Resultados</h2>
+                        <div class="meta-info" id="metaInfo"></div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Modelo</th>
+                                    <th>Tokens (Prefixo)</th>
+                                    <th>Sem Cache</th>
+                                    <th>Com Cache</th>
+                                    <th>Economia</th>
+                                    <th>Cacheia?</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody">
+                                <!-- Inserido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="results-footer" id="resultsFooter"></div>
+                </div>
+            </div>
+
+            <!-- ==================== PAGE: SESSIONS ==================== -->
+            <div class="page" id="page-sessions">
+                <div class="card panel-input">
+                    <h2 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                        Analisar Sessão Claude Code
+                    </h2>
+                    <p class="help-text" style="margin-bottom: 1.5rem;">Selecione um projeto e sessão do Claude Code para ver custos detalhados por rodada e agente.</p>
+
+                    <div class="grid-settings" style="grid-template-columns: 1fr 1fr;">
+                        <div class="form-group">
+                            <label for="sessionProject">Projeto</label>
+                            <select id="sessionProject">
+                                <option value="">Carregando projetos...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionSelect">Sessão</label>
+                            <select id="sessionSelect" disabled>
+                                <option value="">Selecione um projeto primeiro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="analyzeBtn" class="btn-primary" disabled>
+                        <span class="btn-text">Analisar Sessão</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+
+                <!-- Session Results -->
+                <div id="sessionResultsPanel" class="hidden">
+                    <!-- Summary Cards -->
+                    <div class="metrics-grid" id="metricsGrid">
+                        <!-- Filled dynamically -->
+                    </div>
+
+                    <!-- Model Breakdown -->
+                    <div class="card" id="modelBreakdownCard">
+                        <h3 class="card-title">Breakdown por Modelo</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Modelo</th>
+                                        <th>Família</th>
+                                        <th>Chamadas</th>
+                                        <th>Input</th>
+                                        <th>Output</th>
+                                        <th>Cache W</th>
+                                        <th>Cache R</th>
+                                        <th>Custo</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modelBreakdownBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Turns Table -->
+                    <div class="card" id="turnsCard">
+                        <div class="results-header">
+                            <h3 class="card-title">Rodadas (Turns)</h3>
+                            <div class="turns-controls">
+                                <button class="btn-secondary btn-sm" id="toggleAllTurns">Mostrar todas</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Prompt</th>
+                                        <th>Modelos</th>
+                                        <th>Input</th>
+                                        <th>Output</th>
+                                        <th>Cache W</th>
+                                        <th>Cache R</th>
+                                        <th>Custo</th>
+                                        <th>Sub?</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="turnsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Report Generation -->
+                    <div class="card" id="reportCard">
+                        <div class="results-header">
+                            <h3 class="card-title">📋 Relatório para IA</h3>
+                            <div>
+                                <button class="btn-accent btn-sm" id="generateReportBtn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                    Gerar Relatório
+                                </button>
+                                <button class="btn-secondary btn-sm hidden" id="copyReportBtn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+                        <p class="help-text">Gera um relatório em Markdown otimizado para colar em uma IA (Claude, ChatGPT, etc.) e receber recomendações de otimização de custos.</p>
+                        <div id="reportPreview" class="report-preview hidden"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="errorMessage" class="error-toast hidden"></div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
