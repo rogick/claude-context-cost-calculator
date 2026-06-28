@@ -6,6 +6,21 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, basename } from "node:path";
 
+/**
+ * Converte o caminho de configuração (ex: ~/.claude) no caminho completo de projetos.
+ * Expande o caractere tilde (~) para a pasta home do usuário.
+ */
+function getProjectsDir(claudeConfigDir) {
+  const configDir = claudeConfigDir || join(homedir(), ".claude");
+  let resolvedDir = configDir;
+  if (configDir.startsWith("~/")) {
+    resolvedDir = join(homedir(), configDir.slice(2));
+  } else if (configDir === "~") {
+    resolvedDir = homedir();
+  }
+  return join(resolvedDir, "projects");
+}
+
 // Preço por 1M tokens, por FAMILIA: [input, output, cacheWrite5m, cacheWrite1h, cacheRead].
 const PRICING = {
   fable:  [10.0, 50.0, 12.50, 20.0, 1.00],
@@ -51,7 +66,7 @@ function computeEntryCost(usage, model) {
  * Lista projetos disponíveis em ~/.claude/projects/
  */
 export function listProjects(claudeDir) {
-  const dir = claudeDir || join(homedir(), ".claude", "projects");
+  const dir = getProjectsDir(claudeDir);
   if (!existsSync(dir)) return [];
 
   return readdirSync(dir, { withFileTypes: true })
@@ -76,7 +91,7 @@ export function listProjects(claudeDir) {
  * Lista sessões de um projeto específico.
  */
 export function listSessions(projectId, claudeDir) {
-  const dir = claudeDir || join(homedir(), ".claude", "projects");
+  const dir = getProjectsDir(claudeDir);
   const projectPath = join(dir, projectId);
   if (!existsSync(projectPath)) return [];
 
@@ -137,7 +152,7 @@ export function listSessions(projectId, claudeDir) {
  * Analisa uma sessão completa.
  */
 export function analyzeSession(projectId, sessionId, claudeDir) {
-  const dir = claudeDir || join(homedir(), ".claude", "projects");
+  const dir = getProjectsDir(claudeDir);
   const filePath = join(dir, projectId, `${sessionId}.jsonl`);
 
   if (!existsSync(filePath)) {

@@ -11,7 +11,21 @@ import { listProjects, listSessions, analyzeSession, generateReport } from './se
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = 3000;
+// Parse port from command line arguments or environment variable
+let customPort = null;
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+  if ((args[i] === '--port' || args[i] === '-p') && args[i + 1]) {
+    const val = parseInt(args[i + 1], 10);
+    if (!isNaN(val)) {
+      customPort = val;
+    }
+    break;
+  }
+}
+
+const DEFAULT_PORT = 8675;
+const PORT = customPort || process.env.PORT || DEFAULT_PORT;
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -72,9 +86,10 @@ async function handleApiFiles(req, res) {
 
 // --- Session Analysis Endpoints ---
 
-function handleSessionsProjects(req, res) {
+function handleSessionsProjects(req, res, url) {
   try {
-    const projects = listProjects();
+    const claudeDir = url.searchParams.get('claudeDir');
+    const projects = listProjects(claudeDir);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, projects }));
   } catch (error) {
@@ -86,12 +101,13 @@ function handleSessionsProjects(req, res) {
 function handleSessionsList(req, res, url) {
   try {
     const projectId = url.searchParams.get('project');
+    const claudeDir = url.searchParams.get('claudeDir');
     if (!projectId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: 'Parâmetro "project" é obrigatório' }));
       return;
     }
-    const sessions = listSessions(projectId);
+    const sessions = listSessions(projectId, claudeDir);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, sessions }));
   } catch (error) {
@@ -105,13 +121,13 @@ function handleSessionsAnalyze(req, res) {
   req.on('data', chunk => { body += chunk.toString(); });
   req.on('end', () => {
     try {
-      const { project, sessionId } = JSON.parse(body);
+      const { project, sessionId, claudeDir } = JSON.parse(body);
       if (!project || !sessionId) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'project e sessionId são obrigatórios' }));
         return;
       }
-      const analysis = analyzeSession(project, sessionId);
+      const analysis = analyzeSession(project, sessionId, claudeDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, data: analysis }));
     } catch (error) {
@@ -126,13 +142,13 @@ function handleSessionsReport(req, res) {
   req.on('data', chunk => { body += chunk.toString(); });
   req.on('end', () => {
     try {
-      const { project, sessionId, projectName } = JSON.parse(body);
+      const { project, sessionId, projectName, claudeDir } = JSON.parse(body);
       if (!project || !sessionId) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'project e sessionId são obrigatórios' }));
         return;
       }
-      const analysis = analyzeSession(project, sessionId);
+      const analysis = analyzeSession(project, sessionId, claudeDir);
       const report = generateReport(analysis, projectName);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, report }));
@@ -159,7 +175,7 @@ const server = http.createServer(async (req, res) => {
 
   // Session Analysis Endpoints
   if (req.method === 'GET' && pathname === '/api/sessions/projects') {
-    return handleSessionsProjects(req, res);
+    return handleSessionsProjects(req, res, url);
   }
 
   if (req.method === 'GET' && pathname === '/api/sessions/list') {

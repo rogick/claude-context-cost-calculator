@@ -55,21 +55,25 @@ node token_cost_calc.mjs (ARQUIVO|TEXTO) [--system F|TEXTO] \
 ### Exemplos de Uso
 
 1. **Testando um arquivo de texto local (prompt):**
+
    ```bash
    node token_cost_calc.mjs meu_prompt.txt
    ```
 
 2. **Avaliando um texto passado via terminal (inline):**
+
    ```bash
    node token_cost_calc.mjs "Descreva a revolução industrial em três parágrafos."
    ```
 
 3. **Definindo um contexto customizado e especificando simulação de acessos ao cache:**
+
    ```bash
    node token_cost_calc.mjs system_prompt.txt --context claude-rgk --requests 10 --output 1000
    ```
 
 4. **Modo Offline (Estimativa baseada em contagem de caracteres sem fazer chamadas para a API):**
+
    ```bash
    node token_cost_calc.mjs grande_arquivo_de_dados.txt --offline
    ```
@@ -84,6 +88,30 @@ node token_cost_calc.mjs (ARQUIVO|TEXTO) [--system F|TEXTO] \
 - `--ttl`: Tempo de vida do *prompt caching*, podendo ser `5m` ou `1h` (Padrão: `5m`).
 - `--context`: Altera a pasta de onde as configurações serão lidas. Por exemplo, passar `--context meu_bot` fará o script procurar credenciais em `~/.meu_bot/` (Padrão: `claude`).
 - `--offline`: Ativa a estimativa heurística local de contagem em vez de consultar a API da Anthropic. Ideal para testar a ferramenta quando sem internet ou sem as chaves cadastradas.
+
+## Rodando o Servidor como Serviço (PM2)
+
+O projeto inclui um arquivo de configuração do PM2 (`ecosystem.config.cjs`) para facilitar a inicialização e gerenciamento do servidor em segundo plano de forma multiplataforma (Linux, macOS e Windows).
+
+### Iniciar o Serviço
+
+```bash
+pm2 start ecosystem.config.cjs
+```
+
+### Comandos Úteis do PM2
+
+- **Ver status do serviço:** `pm2 status`
+- **Ver logs em tempo real:** `pm2 logs claude-cost-server`
+- **Reiniciar o servidor:** `pm2 restart claude-cost-server`
+- **Parar o servidor:** `pm2 stop claude-cost-server`
+
+### Inicialização Automática com o SO
+
+Para fazer o servidor iniciar automaticamente quando o sistema operacional reiniciar:
+
+1. Gere o script de startup para o seu SO: `pm2 startup` (siga as instruções impressas no terminal).
+2. Salve a lista atual de processos do PM2: `pm2 save`
 
 ## Licença
 

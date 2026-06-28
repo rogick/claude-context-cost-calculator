@@ -259,7 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadProjects() {
         try {
-            const res = await fetch('/api/sessions/projects');
+            const configDir = document.getElementById('claudeConfigDir')?.value || '';
+            const url = `/api/sessions/projects${configDir ? '?claudeDir=' + encodeURIComponent(configDir) : ''}`;
+            const res = await fetch(url);
             const data = await res.json();
 
             if (!data.success) throw new Error(data.error);
@@ -285,6 +287,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    document.getElementById('reloadProjectsBtn')?.addEventListener('click', () => {
+        sessionSelect.innerHTML = '<option value="">Selecione um projeto primeiro</option>';
+        sessionSelect.disabled = true;
+        analyzeBtn.disabled = true;
+        sessionResultsPanel.classList.add('hidden');
+        loadProjects();
+    });
+
+    document.getElementById('claudeConfigDir')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('reloadProjectsBtn')?.click();
+        }
+    });
+
     sessionProject.addEventListener('change', async () => {
         const projectId = sessionProject.value;
         sessionSelect.innerHTML = '<option value="">Carregando sessões...</option>';
@@ -300,7 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentProjectName = sessionProject.options[sessionProject.selectedIndex].textContent;
 
         try {
-            const res = await fetch(`/api/sessions/list?project=${encodeURIComponent(projectId)}`);
+            const configDir = document.getElementById('claudeConfigDir')?.value || '';
+            const url = `/api/sessions/list?project=${encodeURIComponent(projectId)}${configDir ? '&claudeDir=' + encodeURIComponent(configDir) : ''}`;
+            const res = await fetch(url);
             const data = await res.json();
 
             if (!data.success) throw new Error(data.error);
@@ -341,10 +360,15 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionResultsPanel.classList.add('hidden');
 
         try {
+            const configDir = document.getElementById('claudeConfigDir')?.value || '';
             const res = await fetch('/api/sessions/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project: projectId, sessionId })
+                body: JSON.stringify({ 
+                    project: projectId, 
+                    sessionId,
+                    claudeDir: configDir || undefined
+                })
             });
 
             const data = await res.json();
@@ -685,13 +709,15 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = 'Gerando...';
 
         try {
+            const configDir = document.getElementById('claudeConfigDir')?.value || '';
             const res = await fetch('/api/sessions/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     project: projectId, 
                     sessionId,
-                    projectName: currentProjectName 
+                    projectName: currentProjectName,
+                    claudeDir: configDir || undefined
                 })
             });
 

@@ -154,6 +154,15 @@
                     </h2>
                     <p class="help-text" style="margin-bottom: 1.5rem;">Selecione um projeto e sessão do Claude Code para ver custos detalhados por rodada e agente.</p>
 
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="claudeConfigDir">Diretório de Configuração (CLAUDE_CONFIG_DIR)</label>
+                        <div class="config-dir-wrapper" style="display: flex; gap: 0.75rem;">
+                            <input type="text" id="claudeConfigDir" placeholder="~/.claude" value="~/.claude">
+                            <button id="reloadProjectsBtn" class="btn-secondary" style="white-space: nowrap; padding: 0 1.25rem;">Carregar</button>
+                        </div>
+                        <p class="help-text">Onde as sessões e configurações do Claude Code estão salvas (padrão: ~/.claude)</p>
+                    </div>
+
                     <div class="grid-settings" style="grid-template-columns: 1fr 1fr;">
                         <div class="form-group">
                             <label for="sessionProject">Projeto</label>
