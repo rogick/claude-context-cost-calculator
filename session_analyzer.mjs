@@ -21,6 +21,24 @@ function getProjectsDir(claudeConfigDir) {
   return join(resolvedDir, "projects");
 }
 
+// Valida um segmento de caminho (id de projeto ou sessão) recebido do cliente.
+// Bloqueia separadores e ".." para impedir directory traversal fora de projects/.
+function assertSafeSegment(segment, label) {
+  if (typeof segment !== "string" || segment.length === 0) {
+    throw new Error(`${label} inválido`);
+  }
+  if (
+    segment.includes("/") ||
+    segment.includes("\\") ||
+    segment.includes("\0") ||
+    segment === "." ||
+    segment === ".." ||
+    segment.includes("..")
+  ) {
+    throw new Error(`${label} contém caracteres não permitidos`);
+  }
+}
+
 // Preço por 1M tokens, por FAMILIA: [input, output, cacheWrite5m, cacheWrite1h, cacheRead].
 const PRICING = {
   fable:  [10.0, 50.0, 12.50, 20.0, 1.00],
@@ -91,6 +109,7 @@ export function listProjects(claudeDir) {
  * Lista sessões de um projeto específico.
  */
 export function listSessions(projectId, claudeDir) {
+  assertSafeSegment(projectId, "project");
   const dir = getProjectsDir(claudeDir);
   const projectPath = join(dir, projectId);
   if (!existsSync(projectPath)) return [];
@@ -152,6 +171,8 @@ export function listSessions(projectId, claudeDir) {
  * Analisa uma sessão completa.
  */
 export function analyzeSession(projectId, sessionId, claudeDir) {
+  assertSafeSegment(projectId, "project");
+  assertSafeSegment(sessionId, "sessionId");
   const dir = getProjectsDir(claudeDir);
   const filePath = join(dir, projectId, `${sessionId}.jsonl`);
 

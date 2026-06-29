@@ -27,6 +27,14 @@ for (let i = 0; i < args.length; i++) {
 const DEFAULT_PORT = 8675;
 const PORT = customPort || process.env.PORT || DEFAULT_PORT;
 
+// Bind only to loopback by default. This server exposes the local filesystem
+// (file listing, file reads, ~/.claude session contents), so it must not be
+// reachable from the network unless the operator explicitly opts in via HOST.
+const HOST = process.env.HOST || '127.0.0.1';
+
+// Limit request body size to avoid unbounded memory growth (DoS) from large POSTs.
+const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5 MB
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -37,30 +45,61 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml'
 };
 
-async function handleApiCalculate(req, res) {
-  let body = '';
-  req.on('data', chunk => { body += chunk.toString(); });
-  req.on('end', async () => {
-    try {
-      const data = JSON.parse(body);
-      // Calls the refactored function
-      const results = await calculateCosts({
-        rawInput: data.rawInput,
-        systemStr: data.systemStr,
-        out: data.out,
-        varIn: data.varIn,
-        n: data.n,
-        ttl: data.ttl,
-        context: data.context,
-        offline: data.offline
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: results }));
-    } catch (error) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: error.message }));
-    }
+function sendJson(res, status, payload) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
+}
+
+// Reads and parses a JSON request body, enforcing a maximum size.
+function readJsonBody(req, limit = MAX_BODY_SIZE) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('corpo da requisição excede o limite permitido'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf-8');
+      if (!raw) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('JSON inválido no corpo da requisição'));
+      }
+    });
+    req.on('error', reject);
   });
+}
+
+async function handleApiCalculate(req, res) {
+  let data;
+  try {
+    data = await readJsonBody(req);
+  } catch (e) {
+    return sendJson(res, 400, { success: false, error: e.message });
+  }
+  try {
+    // Calls the refactored function
+    const results = await calculateCosts({
+      rawInput: data.rawInput,
+      systemStr: data.systemStr,
+      out: data.out,
+      varIn: data.varIn,
+      n: data.n,
+      ttl: data.ttl,
+      context: data.context,
+      offline: data.offline
+    });
+    sendJson(res, 200, { success: true, data: results });
+  } catch (error) {
+    sendJson(res, 400, { success: false, error: error.message });
+  }
 }
 
 async function handleApiFiles(req, res) {
@@ -76,11 +115,9 @@ async function handleApiFiles(req, res) {
         path: path.join(cwd, entry.name)
       }));
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, files }));
+    sendJson(res, 200, { success: true, files });
   } catch (error) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: false, error: error.message }));
+    sendJson(res, 500, { success: false, error: error.message });
   }
 }
 
@@ -90,11 +127,9 @@ function handleSessionsProjects(req, res, url) {
   try {
     const claudeDir = url.searchParams.get('claudeDir');
     const projects = listProjects(claudeDir);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, projects }));
+    sendJson(res, 200, { success: true, projects });
   } catch (error) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: false, error: error.message }));
+    sendJson(res, 500, { success: false, error: error.message });
   }
 }
 
@@ -103,60 +138,52 @@ function handleSessionsList(req, res, url) {
     const projectId = url.searchParams.get('project');
     const claudeDir = url.searchParams.get('claudeDir');
     if (!projectId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Parâmetro "project" é obrigatório' }));
-      return;
+      return sendJson(res, 400, { success: false, error: 'Parâmetro "project" é obrigatório' });
     }
     const sessions = listSessions(projectId, claudeDir);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, sessions }));
+    sendJson(res, 200, { success: true, sessions });
   } catch (error) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: false, error: error.message }));
+    sendJson(res, 400, { success: false, error: error.message });
   }
 }
 
-function handleSessionsAnalyze(req, res) {
-  let body = '';
-  req.on('data', chunk => { body += chunk.toString(); });
-  req.on('end', () => {
-    try {
-      const { project, sessionId, claudeDir } = JSON.parse(body);
-      if (!project || !sessionId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'project e sessionId são obrigatórios' }));
-        return;
-      }
-      const analysis = analyzeSession(project, sessionId, claudeDir);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: analysis }));
-    } catch (error) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: error.message }));
+async function handleSessionsAnalyze(req, res) {
+  let data;
+  try {
+    data = await readJsonBody(req);
+  } catch (e) {
+    return sendJson(res, 400, { success: false, error: e.message });
+  }
+  try {
+    const { project, sessionId, claudeDir } = data;
+    if (!project || !sessionId) {
+      return sendJson(res, 400, { success: false, error: 'project e sessionId são obrigatórios' });
     }
-  });
+    const analysis = analyzeSession(project, sessionId, claudeDir);
+    sendJson(res, 200, { success: true, data: analysis });
+  } catch (error) {
+    sendJson(res, 400, { success: false, error: error.message });
+  }
 }
 
-function handleSessionsReport(req, res) {
-  let body = '';
-  req.on('data', chunk => { body += chunk.toString(); });
-  req.on('end', () => {
-    try {
-      const { project, sessionId, projectName, claudeDir } = JSON.parse(body);
-      if (!project || !sessionId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'project e sessionId são obrigatórios' }));
-        return;
-      }
-      const analysis = analyzeSession(project, sessionId, claudeDir);
-      const report = generateReport(analysis, projectName);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, report }));
-    } catch (error) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: error.message }));
+async function handleSessionsReport(req, res) {
+  let data;
+  try {
+    data = await readJsonBody(req);
+  } catch (e) {
+    return sendJson(res, 400, { success: false, error: e.message });
+  }
+  try {
+    const { project, sessionId, projectName, claudeDir } = data;
+    if (!project || !sessionId) {
+      return sendJson(res, 400, { success: false, error: 'project e sessionId são obrigatórios' });
     }
-  });
+    const analysis = analyzeSession(project, sessionId, claudeDir);
+    const report = generateReport(analysis, projectName);
+    sendJson(res, 200, { success: true, report });
+  } catch (error) {
+    sendJson(res, 400, { success: false, error: error.message });
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -191,19 +218,27 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Serve static files
-  let reqPath = pathname === '/' ? '/index.html' : pathname;
-  // Prevent path traversal
-  reqPath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
-  
-  const filePath = path.join(__dirname, 'public', reqPath);
-  const extname = String(path.extname(filePath)).toLowerCase();
+  const reqPath = pathname === '/' ? '/index.html' : pathname;
+  const publicDir = path.join(__dirname, 'public');
+  const filePath = path.join(publicDir, reqPath);
+
+  // Defense-in-depth against path traversal: ensure the resolved path stays
+  // inside the public directory regardless of how reqPath was crafted.
+  const resolved = path.resolve(filePath);
+  if (resolved !== publicDir && !resolved.startsWith(publicDir + path.sep)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
+  const extname = String(path.extname(resolved)).toLowerCase();
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
   try {
-    const stat = await fs.stat(filePath);
+    const stat = await fs.stat(resolved);
     if (stat.isFile()) {
       res.writeHead(200, { 'Content-Type': contentType });
-      createReadStream(filePath).pipe(res);
+      createReadStream(resolved).pipe(res);
     } else {
       res.writeHead(404);
       res.end('Not found');
@@ -214,8 +249,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`\n==============================================`);
-  console.log(`🚀 Servidor visual rodando em: http://localhost:${PORT}`);
+  console.log(`🚀 Servidor visual rodando em: http://${HOST}:${PORT}`);
   console.log(`==============================================\n`);
 });

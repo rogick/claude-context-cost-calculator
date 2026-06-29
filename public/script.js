@@ -197,10 +197,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderResults(data) {
         metaInfo.innerHTML = `
-            <div><strong>Modo:</strong> ${data.mode}</div>
-            <div><strong>Contexto:</strong> ${data.context}</div>
-            <div><strong>Input:</strong> ${data.promptSrc}</div>
-            <div><strong>Params:</strong> ${data.requests} reqs, ${data.output} out/req</div>
+            <div><strong>Modo:</strong> ${escapeHtml(data.mode)}</div>
+            <div><strong>Contexto:</strong> ${escapeHtml(data.context)}</div>
+            <div><strong>Input:</strong> ${escapeHtml(data.promptSrc)}</div>
+            <div><strong>Params:</strong> ${escapeHtml(String(data.requests))} reqs, ${escapeHtml(String(data.output))} out/req</div>
         `;
 
         resultsBody.innerHTML = '';
@@ -210,17 +210,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (r.error || !r.family) {
                 tr.innerHTML = `
-                    <td>${r.name}</td>
+                    <td>${escapeHtml(r.name)}</td>
                     <td colspan="5" class="td-error">
-                        <span class="badge badge-error">${r.error || 'Família Desconhecida'}</span>
+                        <span class="badge badge-error">${escapeHtml(r.error || 'Família Desconhecida')}</span>
                     </td>
                 `;
             } else {
                 const cacheBadgeClass = r.cacheable ? 'badge-success' : 'badge-warning';
                 const cacheText = r.cacheable ? 'SIM' : 'NÃO';
-                
+
                 tr.innerHTML = `
-                    <td><strong>${r.name}</strong></td>
+                    <td><strong>${escapeHtml(r.name)}</strong></td>
                     <td class="td-number">${r.prefix.toLocaleString('pt-BR')}</td>
                     <td class="td-number">$${r.noCache.toFixed(3)}</td>
                     <td class="td-number" style="color: var(--success); font-weight: 600;">$${r.cached.toFixed(3)}</td>
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="metric-card mc-turns">
                 <span class="metric-label">Rodadas</span>
                 <span class="metric-value">${s.totalTurns}</span>
-                <span class="metric-sub">Sessão: ${data.title}</span>
+                <span class="metric-sub">Sessão: ${escapeHtml(data.title)}</span>
             </div>
             <div class="metric-card mc-agent">
                 <span class="metric-label">Agente Principal</span>
@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="metric-card mc-model">
                 <span class="metric-label">Modelo Principal</span>
-                <span class="metric-value" style="font-size: 1rem; word-break: break-all;">${primaryModel}</span>
+                <span class="metric-value" style="font-size: 1rem; word-break: break-all;">${escapeHtml(primaryModel)}</span>
                 <span class="metric-sub">${data.modelBreakdown.length} modelo(s) usado(s)</span>
             </div>
         `;
@@ -436,11 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         data.modelBreakdown.forEach(mb => {
             const tr = document.createElement('tr');
-            const familyBadge = mb.family 
-                ? `<span class="badge badge-info">${mb.family}</span>` 
+            const familyBadge = mb.family
+                ? `<span class="badge badge-info">${escapeHtml(mb.family)}</span>`
                 : '<span class="badge badge-muted">?</span>';
             tr.innerHTML = `
-                <td><strong>${mb.model}</strong></td>
+                <td><strong>${escapeHtml(mb.model)}</strong></td>
                 <td>${familyBadge}</td>
                 <td class="td-number">${mb.calls}</td>
                 <td class="td-number">${mb.inputTokens.toLocaleString('pt-BR')}</td>
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="td-prompt" style="cursor: pointer;">
                     <span class="expand-icon">▶</span> ${escapeHtml(t.prompt.slice(0, 80))}${t.prompt.length > 80 ? '…' : ''}
                 </td>
-                <td><span class="badge badge-info">${t.models.join(', ')}</span></td>
+                <td><span class="badge badge-info">${escapeHtml(t.models.join(', '))}</span></td>
                 <td class="td-number">${t.totalInputTokens.toLocaleString('pt-BR')}</td>
                 <td class="td-number">${t.totalOutputTokens.toLocaleString('pt-BR')}</td>
                 <td class="td-number">${t.totalCacheWriteTokens.toLocaleString('pt-BR')}</td>
